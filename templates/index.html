@@ -1,38 +1,46 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>F布行出库效率提升分析</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js 固定版本 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8"></script>
     <style>
         body {
             background-color: #f8f9fa;
         }
+
         .card {
             margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
+
         .chart-container {
             position: relative;
             height: 300px;
             margin-bottom: 30px;
         }
-        h1, h2, h3 {
+
+        h1,
+        h2,
+        h3 {
             color: #343a40;
         }
+
         .summary-card {
             background-color: #e3f2fd;
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1 class="mt-5 mb-4 text-center">F布行出库效率提升分析报告</h1>
-        
+
         <!-- 数据概况 -->
         <div class="row mb-4">
             <div class="col-md-3">
@@ -68,7 +76,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- 季节性销售分析 -->
         <div class="card">
             <div class="card-header bg-primary text-white">
@@ -91,7 +99,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- 客户下单规律 -->
         <div class="card">
             <div class="card-header bg-primary text-white">
@@ -104,7 +112,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- 累托法则分析 -->
         <div class="card">
             <div class="card-header bg-primary text-white">
@@ -148,7 +156,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- EIQ分析 -->
         <div class="card">
             <div class="card-header bg-primary text-white">
@@ -160,11 +168,37 @@
                 </div>
             </div>
         </div>
-        
+
+        <!-- SARIMA销售预测 -->
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h2>五、SKU销售预测（SARIMA模型）</h2>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="skuSelect" class="form-label">选择SKU编号：</label>
+                        <select id="skuSelect" class="form-select">
+                            <option value="">请选择SKU</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 align-self-end">
+                        <button id="forecastBtn" class="btn btn-primary">生成预测</button>
+                    </div>
+                </div>
+
+                <div id="forecastResult" class="mt-4">
+                    <div class="chart-container">
+                        <canvas id="forecastChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- 出库效率提升建议 -->
         <div class="card">
             <div class="card-header bg-primary text-white">
-                <h2>五、出库效率提升建议</h2>
+                <h2>六、出库效率提升建议</h2>
             </div>
             <div class="card-body">
                 <div class="row">
@@ -175,7 +209,7 @@
                             <li><strong>B类SKU</strong>：放置在次优位置</li>
                             <li><strong>C类SKU</strong>：放置在较远位置</li>
                         </ul>
-                        
+
                         <h3>2. 基于客户分类的拣货策略</h3>
                         <ul>
                             <li>A类客户订单优先处理</li>
@@ -188,7 +222,7 @@
                             <li>15:00-17:00高峰期增加拣货人员</li>
                             <li>低谷期安排补货、盘点等工作</li>
                         </ul>
-                        
+
                         <h3>4. 基于预测的库存管理</h3>
                         <ul>
                             <li>根据SARIMA预测结果提前备货</li>
@@ -200,247 +234,447 @@
             </div>
         </div>
     </div>
-    
+
     <script>
-        // 加载数据并绘制图表
-        fetch('/data')
-            .then(response => response.json())
-            .then(data => {
-                // 绘制月度销售图表
-                const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
-                new Chart(monthlyCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: data.monthly_sales.月份,
-                        datasets: [{
-                            label: '销售量',
-                            data: data.monthly_sales.订货量,
-                            backgroundColor: 'rgba(54, 162, 235, 0.6)',
-                            borderColor: 'rgba(54, 162, 235, 1)',
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                title: {
-                                    display: true,
-                                    text: '销售量'
+        // 页面加载完成后执行
+        window.addEventListener('DOMContentLoaded', function () {
+            console.log('页面加载完成，开始绘制图表...');
+
+            // 确保预测按钮的事件监听器在DOM加载完成后绑定
+            console.log('DOM加载完成，绑定预测按钮事件监听器...');
+            const forecastBtn = document.getElementById('forecastBtn');
+            console.log('预测按钮元素:', forecastBtn);
+
+            // 绑定预测按钮点击事件
+            forecastBtn.addEventListener('click', function () {
+                console.log('预测按钮被点击...');
+                const skuSelect = document.getElementById('skuSelect');
+                const skuId = skuSelect.value;
+                console.log('选中的SKU:', skuId);
+
+                if (!skuId) {
+                    console.log('未选择SKU，显示提示...');
+                    alert('请先选择一个SKU');
+                    return;
+                }
+
+                forecastBtn.disabled = true;
+                forecastBtn.textContent = '生成预测中...';
+
+                // 显示加载状态
+                const forecastResult = document.getElementById('forecastResult');
+                forecastResult.innerHTML = `
+                    <div class="alert alert-info">
+                        <h4>正在生成预测...</h4>
+                        <p>正在获取SKU ${skuId} 的销售预测数据，请稍候...</p>
+                    </div>
+                `;
+
+                // 使用简单的XMLHttpRequest替代fetch，确保兼容性
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET', `/forecast/${skuId}`, true);
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState === 4) {
+                        forecastBtn.disabled = false;
+                        forecastBtn.textContent = '生成预测';
+
+                        if (xhr.status === 200) {
+                            try {
+                                // 解析响应数据
+                                const forecastData = JSON.parse(xhr.responseText);
+                                console.log('响应数据解析成功:', forecastData);
+
+                                if (forecastData.error) {
+                                    console.error('预测失败:', forecastData.error);
+                                    forecastResult.innerHTML = `
+                                        <div class="alert alert-danger">
+                                            <h4>预测失败</h4>
+                                            <p>${forecastData.error}</p>
+                                        </div>
+                                    `;
+                                    return;
                                 }
-                            },
-                            x: {
-                                title: {
-                                    display: true,
-                                    text: '月份'
+
+                                // 检查数据格式
+                                if (!forecastData.history || !forecastData.forecast) {
+                                    console.error('预测数据格式不正确:', forecastData);
+                                    forecastResult.innerHTML = `
+                                        <div class="alert alert-danger">
+                                            <h4>数据格式错误</h4>
+                                            <p>预测数据格式不正确，请重试</p>
+                                        </div>
+                                    `;
+                                    return;
+                                }
+
+                                // 直接使用HTML表格显示数据，不使用Chart.js
+                                console.log('使用HTML表格显示预测结果...');
+
+                                // 计算历史数据和预测数据的统计信息
+                                const historyMin = Math.min(...forecastData.history.values);
+                                const historyMax = Math.max(...forecastData.history.values);
+                                const historyAvg = forecastData.history.values.reduce((sum, val) => sum + val, 0) / forecastData.history.values.length;
+
+                                const forecastMin = Math.min(...forecastData.forecast.values);
+                                const forecastMax = Math.max(...forecastData.forecast.values);
+                                const forecastAvg = forecastData.forecast.values.reduce((sum, val) => sum + val, 0) / forecastData.forecast.values.length;
+
+                                forecastResult.innerHTML = `
+                                    <div class="card">
+                                        <div class="card-header bg-success text-white">
+                                            <h4>SKU ${forecastData.sku_id} 销售预测结果</h4>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row mb-4">
+                                                <div class="col-md-6">
+                                                    <h5>历史销售数据统计</h5>
+                                                    <table class="table table-bordered">
+                                                        <tbody>
+                                                            <tr><th>数据点数量</th><td>${forecastData.history.values.length}</td></tr>
+                                                            <tr><th>最小值</th><td>${historyMin.toFixed(2)}</td></tr>
+                                                            <tr><th>最大值</th><td>${historyMax.toFixed(2)}</td></tr>
+                                                            <tr><th>平均值</th><td>${historyAvg.toFixed(2)}</td></tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <h5>预测销售数据统计</h5>
+                                                    <table class="table table-bordered">
+                                                        <tbody>
+                                                            <tr><th>数据点数量</th><td>${forecastData.forecast.values.length}</td></tr>
+                                                            <tr><th>最小值</th><td>${forecastMin.toFixed(2)}</td></tr>
+                                                            <tr><th>最大值</th><td>${forecastMax.toFixed(2)}</td></tr>
+                                                            <tr><th>平均值</th><td>${forecastAvg.toFixed(2)}</td></tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                            
+                                            <h5>预测数据详情</h5>
+                                            <div class="overflow-auto" style="max-height: 400px;">
+                                                <table class="table table-sm table-striped">
+                                                    <thead class="thead-dark">
+                                                        <tr>
+                                                            <th>日期</th>
+                                                            <th>类型</th>
+                                                            <th>销售量</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <!-- 显示历史数据 -->
+                                                        ${forecastData.history.dates.map((date, index) => `
+                                                            <tr>
+                                                                <td>${date}</td>
+                                                                <td><span class="badge bg-primary">历史</span></td>
+                                                                <td>${forecastData.history.values[index].toFixed(2)}</td>
+                                                            </tr>
+                                                        `).join('')}
+                                                        <!-- 显示预测数据 -->
+                                                        ${forecastData.forecast.dates.map((date, index) => `
+                                                            <tr>
+                                                                <td>${date}</td>
+                                                                <td><span class="badge bg-success">预测</span></td>
+                                                                <td>${forecastData.forecast.values[index].toFixed(2)}</td>
+                                                            </tr>
+                                                        `).join('')}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                                console.log('预测结果显示成功！');
+
+                            } catch (error) {
+                                console.error('数据处理失败:', error);
+                                forecastResult.innerHTML = `
+                                    <div class="alert alert-danger">
+                                        <h4>数据处理失败</h4>
+                                        <p>${error.message}</p>
+                                    </div>
+                                `;
+                            }
+                        } else {
+                            console.error('请求失败，状态码:', xhr.status);
+                            forecastResult.innerHTML = `
+                                <div class="alert alert-danger">
+                                    <h4>请求失败</h4>
+                                    <p>预测请求失败，状态码: ${xhr.status}</p>
+                                </div>
+                            `;
+                        }
+                    }
+                };
+
+                xhr.send();
+                console.log('预测请求发送成功...');
+            });
+
+            // 加载基础数据并绘制图表
+            fetch('/data')
+                .then(response => {
+                    console.log('数据请求成功，状态码:', response.status);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('数据解析成功，包含以下字段:', Object.keys(data));
+                    console.log('月度销售数据:', data.monthly_sales);
+                    console.log('季度销售数据:', data.quarterly_sales);
+                    console.log('EIQ数据:', data.eiq_data);
+                    console.log('SKU分类数据:', data.sku_classes);
+                    console.log('客户分类数据:', data.customer_classes);
+                    console.log('小时订单数据:', data.hourly_orders);
+
+                    // 绘制月度销售图表
+                    const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
+                    new Chart(monthlyCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: data.monthly_sales.月份,
+                            datasets: [{
+                                label: '销售量',
+                                data: data.monthly_sales.订货量,
+                                backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    title: {
+                                        display: true,
+                                        text: '销售量'
+                                    }
+                                },
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: '月份'
+                                    }
                                 }
                             }
                         }
-                    }
-                });
-                
-                // 绘制季度销售图表
-                const quarterlyCtx = document.getElementById('quarterlyChart').getContext('2d');
-                new Chart(quarterlyCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: data.quarterly_sales.季度,
-                        datasets: [{
-                            label: '销售量',
-                            data: data.quarterly_sales.订货量,
-                            backgroundColor: 'rgba(75, 192, 192, 0.6)',
-                            borderColor: 'rgba(75, 192, 192, 1)',
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                title: {
-                                    display: true,
-                                    text: '销售量'
-                                }
-                            },
-                            x: {
-                                title: {
-                                    display: true,
-                                    text: '季度'
-                                }
-                            }
-                        }
-                    }
-                });
-                
-                // 绘制小时订单分布图表
-                const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
-                new Chart(hourlyCtx, {
-                    type: 'line',
-                    data: {
-                        labels: data.hourly_orders.小时,
-                        datasets: [{
-                            label: '订单数',
-                            data: data.hourly_orders.订单数,
-                            borderColor: 'rgba(255, 99, 132, 1)',
-                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                            tension: 0.3,
-                            fill: true
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                title: {
-                                    display: true,
-                                    text: '订单数'
-                                }
-                            },
-                            x: {
-                                title: {
-                                    display: true,
-                                    text: '小时'
+                    });
+
+                    // 绘制季度销售图表
+                    const quarterlyCtx = document.getElementById('quarterlyChart').getContext('2d');
+                    new Chart(quarterlyCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: data.quarterly_sales.季度,
+                            datasets: [{
+                                label: '销售量',
+                                data: data.quarterly_sales.订货量,
+                                backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    title: {
+                                        display: true,
+                                        text: '销售量'
+                                    }
+                                },
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: '季度'
+                                    }
                                 }
                             }
                         }
-                    }
-                });
-                
-                // 绘制SKU分类图表
-                const skuCtx = document.getElementById('skuClassChart').getContext('2d');
-                new Chart(skuCtx, {
-                    type: 'pie',
-                    data: {
-                        labels: data.sku_classes.分类,
-                        datasets: [{
-                            data: data.sku_classes.销售占比,
-                            backgroundColor: [
-                                'rgba(255, 99, 132, 0.6)',
-                                'rgba(54, 162, 235, 0.6)',
-                                'rgba(255, 206, 86, 0.6)'
-                            ],
-                            borderColor: [
-                                'rgba(255, 99, 132, 1)',
-                                'rgba(54, 162, 235, 1)',
-                                'rgba(255, 206, 86, 1)'
-                            ],
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'bottom'
-                            },
-                            title: {
-                                display: true,
-                                text: 'SKU销售占比'
-                            }
-                        }
-                    }
-                });
-                
-                // 绘制客户分类图表
-                const customerCtx = document.getElementById('customerClassChart').getContext('2d');
-                new Chart(customerCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: data.customer_classes.分类,
-                        datasets: [{
-                            data: data.customer_classes.占比,
-                            backgroundColor: [
-                                'rgba(75, 192, 192, 0.6)',
-                                'rgba(153, 102, 255, 0.6)',
-                                'rgba(255, 159, 64, 0.6)'
-                            ],
-                            borderColor: [
-                                'rgba(75, 192, 192, 1)',
-                                'rgba(153, 102, 255, 1)',
-                                'rgba(255, 159, 64, 1)'
-                            ],
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'bottom'
-                            },
-                            title: {
-                                display: true,
-                                text: '客户占比'
-                            }
-                        }
-                    }
-                });
-                
-                // 绘制EIQ分析图表
-                const eiqCtx = document.getElementById('eiqChart').getContext('2d');
-                new Chart(eiqCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: data.eiq_data.指标,
-                        datasets: [{
-                            label: '数值',
-                            data: data.eiq_data.数值,
-                            backgroundColor: 'rgba(153, 102, 255, 0.6)',
-                            borderColor: 'rgba(153, 102, 255, 1)',
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                title: {
-                                    display: true,
-                                    text: '数值'
+                    });
+
+                    // 绘制小时订单分布图表
+                    const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
+                    new Chart(hourlyCtx, {
+                        type: 'line',
+                        data: {
+                            labels: data.hourly_orders.小时,
+                            datasets: [{
+                                label: '订单数',
+                                data: data.hourly_orders.订单数,
+                                borderColor: 'rgba(255, 99, 132, 1)',
+                                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                tension: 0.3,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    title: {
+                                        display: true,
+                                        text: '订单数'
+                                    }
+                                },
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: '小时'
+                                    }
                                 }
                             }
                         }
-                    }
-                });
-                
-                // 填充SKU分类表格
-                const skuTable = document.getElementById('skuClassTable');
-                data.sku_classes.分类.forEach((cls, index) => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
+                    });
+
+                    // 绘制SKU分类图表
+                    const skuCtx = document.getElementById('skuClassChart').getContext('2d');
+                    new Chart(skuCtx, {
+                        type: 'pie',
+                        data: {
+                            labels: data.sku_classes.分类,
+                            datasets: [{
+                                data: data.sku_classes.销售占比,
+                                backgroundColor: [
+                                    'rgba(255, 99, 132, 0.6)',
+                                    'rgba(54, 162, 235, 0.6)',
+                                    'rgba(255, 206, 86, 0.6)'
+                                ],
+                                borderColor: [
+                                    'rgba(255, 99, 132, 1)',
+                                    'rgba(54, 162, 235, 1)',
+                                    'rgba(255, 206, 86, 1)'
+                                ],
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'SKU销售占比'
+                                }
+                            }
+                        }
+                    });
+
+                    // 绘制客户分类图表
+                    const customerCtx = document.getElementById('customerClassChart').getContext('2d');
+                    new Chart(customerCtx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: data.customer_classes.分类,
+                            datasets: [{
+                                data: data.customer_classes.占比,
+                                backgroundColor: [
+                                    'rgba(75, 192, 192, 0.6)',
+                                    'rgba(153, 102, 255, 0.6)',
+                                    'rgba(255, 159, 64, 0.6)'
+                                ],
+                                borderColor: [
+                                    'rgba(75, 192, 192, 1)',
+                                    'rgba(153, 102, 255, 1)',
+                                    'rgba(255, 159, 64, 1)'
+                                ],
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                },
+                                title: {
+                                    display: true,
+                                    text: '客户占比'
+                                }
+                            }
+                        }
+                    });
+
+                    // 绘制EIQ分析图表
+                    const eiqCtx = document.getElementById('eiqChart').getContext('2d');
+                    new Chart(eiqCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: data.eiq_data.指标,
+                            datasets: [{
+                                label: '数值',
+                                data: data.eiq_data.数值,
+                                backgroundColor: 'rgba(153, 102, 255, 0.6)',
+                                borderColor: 'rgba(153, 102, 255, 1)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    title: {
+                                        display: true,
+                                        text: '数值'
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    // 填充SKU分类表格
+                    const skuTable = document.getElementById('skuClassTable');
+                    data.sku_classes.分类.forEach((cls, index) => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
                         <td>${cls}</td>
                         <td>${data.sku_classes.数量[index]}</td>
                         <td>${data.sku_classes.占比[index]}</td>
                         <td>${data.sku_classes.销售占比[index]}</td>
                     `;
-                    skuTable.appendChild(row);
-                });
-                
-                // 填充客户分类表格
-                const customerTable = document.getElementById('customerClassTable');
-                data.customer_classes.分类.forEach((cls, index) => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
+                        skuTable.appendChild(row);
+                    });
+
+                    // 填充客户分类表格
+                    const customerTable = document.getElementById('customerClassTable');
+                    data.customer_classes.分类.forEach((cls, index) => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
                         <td>${cls}</td>
                         <td>${data.customer_classes.数量[index]}</td>
                         <td>${data.customer_classes.占比[index]}</td>
                     `;
-                    customerTable.appendChild(row);
+                        customerTable.appendChild(row);
+                    });
+
+                    // 填充SKU选择下拉菜单
+                    const skuSelect = document.getElementById('skuSelect');
+                    data.top_skus.forEach(sku => {
+                        const option = document.createElement('option');
+                        option.value = sku;
+                        option.textContent = sku;
+                        skuSelect.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('数据加载失败:', error);
+                    alert('图表数据加载失败，请检查网络连接或服务器状态');
                 });
-            });
+        });
     </script>
-    
+
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
+
 </html>
