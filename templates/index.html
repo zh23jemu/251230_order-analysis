@@ -195,10 +195,62 @@
             </div>
         </div>
 
+        <!-- 分拣时间分析 -->
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h2>六、分拣时间分析与订单准时完成率</h2>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="card summary-card">
+                            <div class="card-body">
+                                <h5 class="card-title">总体准时完成率</h5>
+                                <h3 class="card-text" id="overallOnTimeRate">--%</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card summary-card">
+                            <div class="card-body">
+                                <h5 class="card-title">总订单数量</h5>
+                                <h3 class="card-text" id="totalOrders">--</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card summary-card">
+                            <div class="card-body">
+                                <h5 class="card-title">准时完成订单数</h5>
+                                <h3 class="card-text" id="onTimeOrders">--</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>不同类型订单的分拣时间统计</h3>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>订单类型</th>
+                            <th>订单数量</th>
+                            <th>平均分拣时间(小时)</th>
+                            <th>最大分拣时间(小时)</th>
+                            <th>准时完成数量</th>
+                            <th>准时完成率</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sortingTable">
+                        <!-- 数据将通过JavaScript动态填充 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- 出库效率提升建议 -->
         <div class="card">
             <div class="card-header bg-primary text-white">
-                <h2>六、出库效率提升建议</h2>
+                <h2>七、出库效率提升建议</h2>
             </div>
             <div class="card-body">
                 <div class="row">
@@ -665,6 +717,34 @@
                         option.textContent = sku;
                         skuSelect.appendChild(option);
                     });
+
+                    // 填充分拣时间分析数据
+                    console.log('分拣时间数据:', data.sorting_data);
+                    console.log('总体准时完成率:', data.overall_on_time_rate);
+                    console.log('总订单数:', data.total_orders);
+                    console.log('准时完成订单数:', data.total_on_time);
+
+                    // 更新总体统计卡片
+                    document.getElementById('overallOnTimeRate').textContent = `${data.overall_on_time_rate}%`;
+                    document.getElementById('totalOrders').textContent = data.total_orders.toLocaleString();
+                    document.getElementById('onTimeOrders').textContent = data.total_on_time.toLocaleString();
+
+                    // 填充分拣时间统计表格
+                    const sortingTable = document.getElementById('sortingTable');
+                    sortingTable.innerHTML = '';
+
+                    for (let i = 0; i < data.sorting_data.订单类型.length; i++) {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${data.sorting_data.订单类型[i]}</td>
+                            <td>${data.sorting_data.订单数量[i].toLocaleString()}</td>
+                            <td>${data.sorting_data.平均分拣时间[i]}</td>
+                            <td>${data.sorting_data.最大分拣时间[i]}</td>
+                            <td>${data.sorting_data.准时完成数量[i].toLocaleString()}</td>
+                            <td>${data.sorting_data.准时完成率[i]}%</td>
+                        `;
+                        sortingTable.appendChild(row);
+                    }
                 })
                 .catch(error => {
                     console.error('数据加载失败:', error);

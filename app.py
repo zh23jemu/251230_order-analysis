@@ -11,6 +11,21 @@ app = Flask(__name__)
 # 全局变量存储数据，避免重复加载
 global_data = None
 
+def convert_to_native_types(obj):
+    """将numpy类型转换为Python原生类型"""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {key: convert_to_native_types(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_to_native_types(item) for item in obj]
+    else:
+        return obj
+
 # 加载并预处理数据
 def load_and_merge_data():
     """加载并合并12个月的订单数据"""
@@ -45,6 +60,17 @@ def load_and_merge_data():
     merged_df['小时'] = merged_df['时间'].dt.hour
     merged_df['年份'] = merged_df['时间'].dt.year
     merged_df['周'] = merged_df['时间'].dt.isocalendar().week
+    
+    # 添加订单类型识别（基于客户编号）
+    # 规则：C0001-C0050为镇内客户，C0051-C0101为镇外客户
+    merged_df['订单类型'] = merged_df['客户编号'].apply(lambda x: '镇内' if int(x[1:]) <= 50 else '镇外')
+    
+    # 添加分拣时间分析（假设：订单处理时间 = 订单量 / 处理效率）
+    # 假设处理效率：每小时处理1000件商品
+    merged_df['分拣时间'] = merged_df['订货量'] / 1000
+    
+    # 计算准时完成情况
+    merged_df['准时完成'] = merged_df.apply(lambda row: row['分拣时间'] <= (1 if row['订单类型'] == '镇内' else 2), axis=1)
     
     return merged_df
 
@@ -156,17 +182,49 @@ def load_data():
     }
     
     # 6. 获取前20个A类SKU供选择
-    top_skus = sku_sales[sku_sales['分类'] == 'A']['SKU编号'].head(20).tolist()
+    top_skus = [int(x) for x in sku_sales[sku_sales['分类'] == 'A']['SKU编号'].head(20).tolist()]
     
-    return {
+    # 6. 分拣时间分析
+    # 计算不同类型订单的分拣时间统计
+    order_type_stats = df.groupby('订单类型').agg({
+        '分拣时间': ['mean', 'median', 'max', 'count'],
+        '准时完成': ['sum', 'mean']
+    }).round(2)
+    
+    order_type_stats.columns = ['平均分拣时间', '中位数分拣时间', '最大分拣时间', '订单数量', '准时完成数量', '准时完成率']
+    order_type_stats = order_type_stats.reset_index()
+    
+    # 计算总体准时完成率
+    total_on_time = df['准时完成'].sum()
+    total_orders = len(df)
+    overall_on_time_rate = round((total_on_time / total_orders) * 100, 2)
+    
+    # 准备分拣时间数据
+    sorting_data = {
+        '订单类型': [str(x) for x in order_type_stats['订单类型'].tolist()],
+        '平均分拣时间': [float(x) for x in order_type_stats['平均分拣时间'].tolist()],
+        '中位数分拣时间': [float(x) for x in order_type_stats['中位数分拣时间'].tolist()],
+        '最大分拣时间': [float(x) for x in order_type_stats['最大分拣时间'].tolist()],
+        '订单数量': [int(x) for x in order_type_stats['订单数量'].tolist()],
+        '准时完成数量': [int(x) for x in order_type_stats['准时完成数量'].tolist()],
+        '准时完成率': [round(rate * 100, 2) for rate in order_type_stats['准时完成率'].tolist()]
+    }
+    
+    result = {
         'monthly_sales': monthly_sales,
         'quarterly_sales': quarterly_sales,
         'hourly_orders': hourly_orders,
         'sku_classes': sku_classes,
         'customer_classes': customer_classes,
         'eiq_data': eiq_data,
-        'top_skus': top_skus
+        'top_skus': top_skus,
+        'sorting_data': sorting_data,
+        'overall_on_time_rate': overall_on_time_rate,
+        'total_orders': int(total_orders),
+        'total_on_time': int(total_on_time)
     }
+    
+    return convert_to_native_types(result)
 
 # SARIMA销售预测
 def sarima_forecast(sku_id, forecast_weeks=52):
@@ -225,8 +283,8 @@ def sarima_forecast(sku_id, forecast_weeks=52):
         history_values = [float(val) for val in history_values]
         forecast_values = [float(val) for val in forecast_values]
         
-        return {
-            'sku_id': sku_id,
+        return convert_to_native_types({
+            'sku_id': int(sku_id),
             'history': {
                 'dates': history_dates,
                 'values': history_values
@@ -235,7 +293,7 @@ def sarima_forecast(sku_id, forecast_weeks=52):
                 'dates': forecast_dates,
                 'values': forecast_values
             }
-        }
+        })
     except Exception as e:
         return {
             'error': f'模型拟合失败: {str(e)}'
